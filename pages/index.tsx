@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { STARTING_ENROLLMENT_NUMBER } from '../config/enrollmentConfig';
+import { STARTING_ENROLLMENT_NUMBER, COHORT_TYPE, COHORT_NUMBER } from '../config/enrollmentConfig';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -171,6 +171,8 @@ export default function OnboardingForm() {
         'Familiar Skills': form.familiarSkills.join(', '),
         'Built Projects': form.builtProjects,
         'Goal': form.goal,
+        'Cohort Type': COHORT_TYPE,
+        'Cohort Number': COHORT_NUMBER,
       };
       
       console.log('Submitting data:', submissionData); // Debug log
