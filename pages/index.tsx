@@ -67,16 +67,20 @@ export default function OnboardingForm() {
     setLoading(true);
     setError('');
     setSuccess(false);
-    
+
     try {
+      // Validate graduation year
+      if (form.graduationYear && parseInt(form.graduationYear) < 2025) {
+        throw new Error('Graduation year must be 2025 or later');
+      }
       // Generate unique EnrollmentID by checking the last entry in database
       const year = new Date().getFullYear().toString().slice(-2);
-      
+
       // Fetch the last enrollment ID from the database
       // Try different approaches to get the last enrollment ID
       let lastEntry = null;
       let fetchError = null;
-      
+
       // First try: Order by EnrollmentID itself (lexicographically)
       try {
         const result = await supabase
@@ -88,13 +92,13 @@ export default function OnboardingForm() {
         fetchError = result.error;
       } catch (err) {
         console.log('First approach failed, trying alternative...');
-        
+
         // Second try: Get all records and find the latest one manually
         try {
           const result = await supabase
             .from('onboarding')
             .select('"EnrollmentID"');
-          
+
           if (result.data && result.data.length > 0) {
             // Sort enrollment IDs manually to find the highest number
             const sortedEntries = result.data.sort((a, b) => {
@@ -110,18 +114,18 @@ export default function OnboardingForm() {
           fetchError = err2;
         }
       }
-      
+
       if (fetchError) {
         console.error('Error fetching last enrollment ID:', fetchError);
         // Continue with default starting number if query fails
       }
-      
+
       let nextRollNumber = STARTING_ENROLLMENT_NUMBER.toString().padStart(4, '0'); // Use the starting enrollment number
-      
+
       if (lastEntry && lastEntry.length > 0) {
         const lastEnrollmentID = lastEntry[0]['EnrollmentID'];
         console.log('Last enrollment ID found:', lastEnrollmentID);
-        
+
         // Extract the roll number from the last enrollment ID (format: 25MBY2001)
         const rollNumberMatch = lastEnrollmentID.match(/(\d+)$/);
         if (rollNumberMatch) {
@@ -132,18 +136,18 @@ export default function OnboardingForm() {
       } else {
         console.log('No existing entries found, using starting number:', nextRollNumber);
       }
-      
+
       // Generate enrollment ID with additional uniqueness check
       let enrollmentID = `${year}MBY${nextRollNumber}`;
       console.log('Generated enrollment ID:', enrollmentID);
-      
+
       // Double-check if this ID already exists to avoid duplicates
       const { data: existingEntry } = await supabase
         .from('onboarding')
         .select('"EnrollmentID"')
         .eq('"EnrollmentID"', enrollmentID)
         .limit(1);
-      
+
       if (existingEntry && existingEntry.length > 0) {
         console.log('Enrollment ID already exists, generating new one...');
         // If it exists, increment and try again
@@ -152,7 +156,7 @@ export default function OnboardingForm() {
         enrollmentID = `${year}MBY${nextRollNumber}`;
         console.log('New enrollment ID:', enrollmentID);
       }
-      
+
       // Prepare data for Supabase (try with original column names first)
       const submissionData = {
         'EnrollmentID': enrollmentID,
@@ -174,22 +178,22 @@ export default function OnboardingForm() {
         'Cohort Type': COHORT_TYPE,
         'Cohort Number': COHORT_NUMBER,
       };
-      
+
       console.log('Submitting data:', submissionData); // Debug log
-      
+
       // Insert into Supabase with better error handling
       const { data, error } = await supabase
         .from('onboarding')
         .insert([submissionData])
         .select();
-      
+
       if (error) {
         console.error('Supabase error:', error);
         throw new Error(`Database error: ${error.message}`);
       }
-      
+
       console.log('Success! Inserted data:', data); // Debug log
-      
+
       // Create unique submission token and save to localStorage
       const submissionToken = `mentiby_${enrollmentID}_${Date.now()}`;
       if (typeof window !== 'undefined') {
@@ -197,10 +201,10 @@ export default function OnboardingForm() {
         localStorage.setItem('mentiby_enrollment_id', enrollmentID);
         localStorage.setItem('mentiby_submission_date', new Date().toISOString());
       }
-      
+
       setSuccess(true);
       setHasSubmitted(true);
-      
+
       // Clear form data for security
       setForm({
         fullName: '',
@@ -246,7 +250,7 @@ export default function OnboardingForm() {
             const top = ((i * 43 + 17) % 100);
             const delay = (i * 0.7) % 5;
             const duration = 3 + (i % 4);
-            
+
             return (
               <div
                 key={i}
@@ -293,13 +297,13 @@ export default function OnboardingForm() {
               <h1 className="text-6xl md:text-8xl font-black bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 bg-clip-text text-transparent animate-gradient drop-shadow-2xl">
                 Welcome to MentiBY!
               </h1>
-              
+
               <div className="h-4 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 rounded-full animate-pulse shadow-lg max-w-2xl mx-auto"></div>
-              
+
               <p className="text-3xl md:text-4xl text-gray-100 font-light tracking-wide leading-relaxed">
-                🚀 Your journey begins now! 
+                🚀 Your journey begins now!
               </p>
-              
+
               <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
                 Get ready for an amazing adventure in learning and growth. We're excited to have you on board!
               </p>
@@ -307,16 +311,16 @@ export default function OnboardingForm() {
               {/* Additional celebration elements */}
               <div className="mt-16 space-y-6">
                 <div className="flex justify-center space-x-8 text-6xl">
-                  <span className="animate-bounce" style={{animationDelay: '0s'}}>🎯</span>
-                  <span className="animate-bounce" style={{animationDelay: '0.2s'}}>✨</span>
-                  <span className="animate-bounce" style={{animationDelay: '0.4s'}}>🚀</span>
-                  <span className="animate-bounce" style={{animationDelay: '0.6s'}}>💫</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0s' }}>🎯</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>✨</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0.4s' }}>🚀</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0.6s' }}>💫</span>
                 </div>
-                
+
                 <p className="text-lg text-purple-200">
                   Check your email for next steps and welcome information!
                 </p>
-                
+
                 {/* Show enrollment info if available */}
                 {typeof window !== 'undefined' && localStorage.getItem('mentiby_enrollment_id') && (
                   <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 backdrop-blur-sm">
@@ -389,7 +393,7 @@ export default function OnboardingForm() {
           const top = ((i * 43 + 17) % 100);
           const delay = (i * 0.7) % 5;
           const duration = 3 + (i % 4);
-          
+
           return (
             <div
               key={i}
@@ -437,13 +441,13 @@ export default function OnboardingForm() {
               <h1 className="text-6xl md:text-8xl font-black bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 bg-clip-text text-transparent animate-gradient drop-shadow-2xl">
                 Welcome to MentiBY!
               </h1>
-              
+
               <div className="h-4 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 rounded-full animate-pulse shadow-lg max-w-2xl mx-auto"></div>
-              
+
               <p className="text-3xl md:text-4xl text-gray-100 font-light tracking-wide leading-relaxed">
-                🚀 Your journey begins now! 
+                🚀 Your journey begins now!
               </p>
-              
+
               <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
                 Get ready for an amazing adventure in learning and growth. We're excited to have you on board!
               </p>
@@ -451,12 +455,12 @@ export default function OnboardingForm() {
               {/* Additional celebration elements */}
               <div className="mt-16 space-y-6">
                 <div className="flex justify-center space-x-8 text-6xl">
-                  <span className="animate-bounce" style={{animationDelay: '0s'}}>🎯</span>
-                  <span className="animate-bounce" style={{animationDelay: '0.2s'}}>✨</span>
-                  <span className="animate-bounce" style={{animationDelay: '0.4s'}}>🚀</span>
-                  <span className="animate-bounce" style={{animationDelay: '0.6s'}}>💫</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0s' }}>🎯</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>✨</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0.4s' }}>🚀</span>
+                  <span className="animate-bounce" style={{ animationDelay: '0.6s' }}>💫</span>
                 </div>
-                
+
                 <p className="text-lg text-purple-200">
                   Check your email for next steps and welcome information!
                 </p>
@@ -481,7 +485,7 @@ export default function OnboardingForm() {
           <div className="backdrop-blur-3xl bg-gradient-to-br from-white/15 to-white/5 rounded-3xl border border-white/20 shadow-2xl p-8 md:p-12 relative overflow-hidden">
             {/* Decorative border glow */}
             <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400/30 via-purple-400/30 to-pink-400/30 blur-lg animate-pulse"></div>
-            
+
             <div className="relative z-10">
               <form className="space-y-12" onSubmit={handleSubmit}>
                 {/* Personal Information Section */}
@@ -492,7 +496,7 @@ export default function OnboardingForm() {
                       Personal Information
                     </h2>
                   </div>
-                  
+
                   <div className="grid md:grid-cols-2 gap-8">
                     {/* Full Name */}
                     <div className="form-group group">
@@ -557,7 +561,7 @@ export default function OnboardingForm() {
                       Social Profiles
                     </h2>
                   </div>
-                  
+
                   <div className="grid md:grid-cols-3 gap-8">
                     {/* LinkedIn */}
                     <div className="form-group group">
@@ -614,7 +618,7 @@ export default function OnboardingForm() {
                       Academic Information
                     </h2>
                   </div>
-                  
+
                   <div className="grid md:grid-cols-2 gap-8">
                     {/* College Name */}
                     <div className="form-group group">
@@ -683,6 +687,8 @@ export default function OnboardingForm() {
                         <input
                           name="graduationYear"
                           type="number"
+                          min="2025"
+                          max="2035"
                           value={form.graduationYear}
                           onChange={handleChange}
                           className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-white/90 to-gray-50/90 border-2 border-transparent text-black placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:shadow-lg focus:shadow-purple-400/25 transition-all duration-300 hover:shadow-md backdrop-blur-sm"
@@ -690,6 +696,12 @@ export default function OnboardingForm() {
                         />
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/0 via-purple-400/20 to-pink-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                       </div>
+                      {/* Validation message for graduation year */}
+                      {form.graduationYear && parseInt(form.graduationYear) < 2025 && (
+                        <p className="mt-2 text-red-400 text-sm font-semibold">
+                          ⚠️ Graduation year must be 2025 or later
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -732,28 +744,27 @@ export default function OnboardingForm() {
                       {skillsList.map((skill, index) => {
                         const gradients = [
                           'from-blue-500 to-purple-600',
-                          'from-green-500 to-teal-600', 
+                          'from-green-500 to-teal-600',
                           'from-yellow-500 to-orange-600',
                           'from-pink-500 to-red-600',
                           'from-purple-500 to-indigo-600',
                           'from-cyan-500 to-blue-600'
                         ];
-                                             const skillIcons = {
-                           'Python': '🐍',
-                           'C': '⚡',
-                           'C++': '💻', 
-                           'HTML/CSS': '🎨',
-                           'JS': '🚀',
-                           'Java': '☕'
-                         };
+                        const skillIcons = {
+                          'Python': '🐍',
+                          'C': '⚡',
+                          'C++': '💻',
+                          'HTML/CSS': '🎨',
+                          'JS': '🚀',
+                          'Java': '☕'
+                        };
                         const isSelected = form.familiarSkills.includes(skill);
-                        
+
                         return (
                           <label
                             key={skill}
-                            className={`group relative cursor-pointer transition-all duration-300 transform hover:scale-105 ${
-                              isSelected ? 'scale-105' : ''
-                            }`}
+                            className={`group relative cursor-pointer transition-all duration-300 transform hover:scale-105 ${isSelected ? 'scale-105' : ''
+                              }`}
                           >
                             <input
                               type="checkbox"
@@ -765,8 +776,8 @@ export default function OnboardingForm() {
                             />
                             <div className={`
                               relative p-6 rounded-2xl backdrop-blur-sm border-2 transition-all duration-300
-                              ${isSelected 
-                                ? `bg-gradient-to-br ${gradients[index % gradients.length]} border-white/40 shadow-lg shadow-purple-500/25` 
+                              ${isSelected
+                                ? `bg-gradient-to-br ${gradients[index % gradients.length]} border-white/40 shadow-lg shadow-purple-500/25`
                                 : 'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/15'
                               }
                             `}>
@@ -774,14 +785,13 @@ export default function OnboardingForm() {
                               <div className="text-3xl mb-3 text-center">
                                 {skillIcons[skill as keyof typeof skillIcons]}
                               </div>
-                              
+
                               {/* Skill Name */}
-                              <div className={`text-center font-semibold transition-colors duration-300 ${
-                                isSelected ? 'text-white' : 'text-gray-200'
-                              }`}>
+                              <div className={`text-center font-semibold transition-colors duration-300 ${isSelected ? 'text-white' : 'text-gray-200'
+                                }`}>
                                 {skill}
                               </div>
-                              
+
                               {/* Checkmark */}
                               <div className={`
                                 absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 
@@ -790,7 +800,7 @@ export default function OnboardingForm() {
                               `}>
                                 ✓
                               </div>
-                              
+
                               {/* Hover glow effect */}
                               <div className={`
                                 absolute inset-0 rounded-2xl bg-gradient-to-br ${gradients[index % gradients.length]} 
@@ -859,7 +869,7 @@ export default function OnboardingForm() {
                   >
                     {/* Button glow effect */}
                     <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
-                    
+
                     {/* Button content */}
                     <div className="relative z-10 flex items-center justify-center space-x-3">
                       {loading ? (
@@ -875,7 +885,7 @@ export default function OnboardingForm() {
                         </>
                       )}
                     </div>
-                    
+
                     {/* Animated sparkles */}
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                       {[...Array(6)].map((_, i) => (
