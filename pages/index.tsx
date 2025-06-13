@@ -73,32 +73,85 @@ export default function OnboardingForm() {
       const year = new Date().getFullYear().toString().slice(-2);
       
       // Fetch the last enrollment ID from the database
-      const { data: lastEntry, error: fetchError } = await supabase
-        .from('onboarding')
-        .select('EnrollmentID')
-        .order('id', { ascending: false })
-        .limit(1);
+      // Try different approaches to get the last enrollment ID
+      let lastEntry = null;
+      let fetchError = null;
+      
+      // First try: Order by EnrollmentID itself (lexicographically)
+      try {
+        const result = await supabase
+          .from('onboarding')
+          .select('"EnrollmentID"')
+          .order('"EnrollmentID"', { ascending: false })
+          .limit(1);
+        lastEntry = result.data;
+        fetchError = result.error;
+      } catch (err) {
+        console.log('First approach failed, trying alternative...');
+        
+        // Second try: Get all records and find the latest one manually
+        try {
+          const result = await supabase
+            .from('onboarding')
+            .select('"EnrollmentID"');
+          
+          if (result.data && result.data.length > 0) {
+            // Sort enrollment IDs manually to find the highest number
+            const sortedEntries = result.data.sort((a, b) => {
+              const aNum = parseInt(a.EnrollmentID.match(/(\d+)$/)?.[1] || '0');
+              const bNum = parseInt(b.EnrollmentID.match(/(\d+)$/)?.[1] || '0');
+              return bNum - aNum; // Descending order
+            });
+            lastEntry = [sortedEntries[0]];
+          }
+          fetchError = result.error;
+        } catch (err2) {
+          console.error('Both approaches failed:', err2);
+          fetchError = err2;
+        }
+      }
       
       if (fetchError) {
         console.error('Error fetching last enrollment ID:', fetchError);
+        // Continue with default starting number if query fails
       }
       
       let nextRollNumber = STARTING_ENROLLMENT_NUMBER.toString().padStart(4, '0'); // Use the starting enrollment number
       
       if (lastEntry && lastEntry.length > 0) {
-        const lastEnrollmentID = lastEntry[0].EnrollmentID;
-        console.log('Last enrollment ID:', lastEnrollmentID);
+        const lastEnrollmentID = lastEntry[0]['EnrollmentID'];
+        console.log('Last enrollment ID found:', lastEnrollmentID);
         
         // Extract the roll number from the last enrollment ID (format: 25MBY2001)
         const rollNumberMatch = lastEnrollmentID.match(/(\d+)$/);
         if (rollNumberMatch) {
           const lastRollNumber = parseInt(rollNumberMatch[1]);
           nextRollNumber = (lastRollNumber + 1).toString().padStart(4, '0');
+          console.log('Incremented from', lastRollNumber, 'to', nextRollNumber);
         }
+      } else {
+        console.log('No existing entries found, using starting number:', nextRollNumber);
       }
       
-      const enrollmentID = `${year}MBY${nextRollNumber}`;
+      // Generate enrollment ID with additional uniqueness check
+      let enrollmentID = `${year}MBY${nextRollNumber}`;
       console.log('Generated enrollment ID:', enrollmentID);
+      
+      // Double-check if this ID already exists to avoid duplicates
+      const { data: existingEntry } = await supabase
+        .from('onboarding')
+        .select('"EnrollmentID"')
+        .eq('"EnrollmentID"', enrollmentID)
+        .limit(1);
+      
+      if (existingEntry && existingEntry.length > 0) {
+        console.log('Enrollment ID already exists, generating new one...');
+        // If it exists, increment and try again
+        const currentNumber = parseInt(nextRollNumber);
+        nextRollNumber = (currentNumber + 1).toString().padStart(4, '0');
+        enrollmentID = `${year}MBY${nextRollNumber}`;
+        console.log('New enrollment ID:', enrollmentID);
+      }
       
       // Prepare data for Supabase (try with original column names first)
       const submissionData = {
