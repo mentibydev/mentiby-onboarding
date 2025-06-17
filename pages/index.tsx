@@ -602,7 +602,7 @@ export default function OnboardingForm() {
                           value={form.hackerrank}
                           onChange={handleChange}
                           className="w-full px-5 py-4 rounded-2xl bg-gradient-to-r from-white/90 to-gray-50/90 border-2 border-transparent text-black placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:shadow-lg focus:shadow-purple-400/25 transition-all duration-300 hover:shadow-md backdrop-blur-sm"
-                          placeholder="Hackerrank Username"
+                          placeholder="Hackerrank Profile Link"
                         />
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/0 via-purple-400/20 to-pink-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                       </div>
