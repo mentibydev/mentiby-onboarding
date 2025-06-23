@@ -40,6 +40,15 @@ export default function OnboardingForm() {
         if (submissionToken) {
           setHasSubmitted(true);
           setSuccess(true);
+          
+          // Check if this is a duplicate submission by checking if existing enrollment ID exists
+          // but regular enrollment ID doesn't
+          const existingEnrollmentId = localStorage.getItem('mentiby_existing_enrollment_id');
+          const regularEnrollmentId = localStorage.getItem('mentiby_enrollment_id');
+          
+          if (existingEnrollmentId && !regularEnrollmentId) {
+            setError('duplicate'); // Set duplicate error state for reload case
+          }
         }
       }
     };
@@ -69,6 +78,44 @@ export default function OnboardingForm() {
     setSuccess(false);
 
     try {
+      // Check if email already exists in the database
+      const { data: existingUser, error: emailCheckError } = await supabase
+        .from('onboarding')
+        .select('Email')
+        .eq('Email', form.email)
+        .limit(1);
+
+      if (emailCheckError) {
+        console.error('Error checking email:', emailCheckError);
+        throw new Error('Unable to verify email. Please try again.');
+      }
+
+      if (existingUser && existingUser.length > 0) {
+        // Email already exists - fetch enrollment ID and show already registered message
+        const { data: userDetails, error: detailsError } = await supabase
+          .from('onboarding')
+          .select('EnrollmentID')
+          .eq('Email', form.email)
+          .limit(1);
+
+        let enrollmentId = null;
+        if (!detailsError && userDetails && userDetails.length > 0) {
+          enrollmentId = userDetails[0].EnrollmentID;
+        }
+
+        const submissionToken = `mentiby_duplicate_${form.email}_${Date.now()}`;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mentiby_submission_token', submissionToken);
+          if (enrollmentId) {
+            localStorage.setItem('mentiby_existing_enrollment_id', enrollmentId);
+          }
+        }
+        setSuccess(true);
+        setHasSubmitted(true);
+        setError('duplicate'); // Special error state for duplicate email
+        return; // Exit early
+      }
+
       // Validate graduation year
       if (form.graduationYear && parseInt(form.graduationYear) < 2025) {
         throw new Error('Graduation year must be 2025 or later');
@@ -269,68 +316,148 @@ export default function OnboardingForm() {
         {/* Success Page - Full Screen */}
         <div className="relative z-10 min-h-screen flex items-center justify-center">
           <div className="text-center max-w-4xl mx-auto px-8">
-            {/* Success Animation */}
-            <div className="mb-12 animate-fadeIn">
-              <div className="relative inline-block">
-                <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full flex items-center justify-center animate-bounce">
-                  <span className="text-6xl">🎉</span>
-                </div>
-                {/* Sparkle effects around checkmark */}
-                <div className="absolute inset-0">
-                  {[...Array(8)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="absolute w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-ping"
-                      style={{
-                        left: `${20 + (i * 15)}%`,
-                        top: `${20 + ((i % 2) * 60)}%`,
-                        animationDelay: `${i * 0.3}s`,
-                      }}
-                    ></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Welcome Message */}
-            <div className="space-y-8 animate-fadeIn">
-              <h1 className="text-6xl md:text-8xl font-black bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 bg-clip-text text-transparent animate-gradient drop-shadow-2xl">
-                Welcome to MentiBY!
-              </h1>
-
-              <div className="h-4 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 rounded-full animate-pulse shadow-lg max-w-2xl mx-auto"></div>
-
-              <p className="text-3xl md:text-4xl text-gray-100 font-light tracking-wide leading-relaxed">
-                🚀 Your journey begins now!
-              </p>
-
-              <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                Get ready for an amazing adventure in learning and growth. We're excited to have you on board!
-              </p>
-
-              {/* Additional celebration elements */}
-              <div className="mt-16 space-y-6">
-                <div className="flex justify-center space-x-8 text-6xl">
-                  <span className="animate-bounce" style={{ animationDelay: '0s' }}>🎯</span>
-                  <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>✨</span>
-                  <span className="animate-bounce" style={{ animationDelay: '0.4s' }}>🚀</span>
-                  <span className="animate-bounce" style={{ animationDelay: '0.6s' }}>💫</span>
+            {error === 'duplicate' ? (
+              // Already Registered Message
+              <>
+                {/* Warning Animation */}
+                <div className="mb-12 animate-fadeIn">
+                  <div className="relative inline-block">
+                    <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-r from-orange-400 to-red-400 rounded-full flex items-center justify-center animate-pulse">
+                      <span className="text-6xl">⚠️</span>
+                    </div>
+                    {/* Glowing effects around warning */}
+                    <div className="absolute inset-0">
+                      {[...Array(6)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="absolute w-3 h-3 bg-gradient-to-r from-red-400 to-orange-400 rounded-full animate-ping"
+                          style={{
+                            left: `${25 + (i * 12)}%`,
+                            top: `${25 + ((i % 2) * 50)}%`,
+                            animationDelay: `${i * 0.4}s`,
+                          }}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <p className="text-lg text-purple-200">
-                  Check your email for next steps and welcome information!
-                </p>
+                {/* Already Registered Message */}
+                <div className="space-y-8 animate-fadeIn">
+                  <h1 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-orange-300 via-red-300 to-pink-300 bg-clip-text text-transparent animate-gradient drop-shadow-2xl">
+                    You are already registered
+                  </h1>
 
-                {/* Show enrollment info if available */}
-                {typeof window !== 'undefined' && localStorage.getItem('mentiby_enrollment_id') && (
-                  <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 backdrop-blur-sm">
-                    <p className="text-purple-200 font-semibold">
-                      Your Enrollment ID: <span className="text-cyan-300">{localStorage.getItem('mentiby_enrollment_id')}</span>
+                  <div className="h-4 bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 rounded-full animate-pulse shadow-lg max-w-2xl mx-auto"></div>
+
+                  <p className="text-2xl md:text-3xl text-gray-100 font-light tracking-wide leading-relaxed">
+                    ⚠️ Multiple form submission may lead to revoke course access
+                  </p>
+
+                  <div className="mt-12 p-8 rounded-3xl bg-gradient-to-r from-red-500/20 to-orange-500/20 border-2 border-red-400/30 backdrop-blur-sm">
+                    <p className="text-xl text-red-200 font-semibold mb-4">
+                      🚫 Important Notice
+                    </p>
+                    <p className="text-lg text-gray-300 leading-relaxed">
+                      Your email address is already associated with an existing registration. 
+                      Attempting to register multiple times may result in the revocation of your course access.
                     </p>
                   </div>
-                )}
-              </div>
-            </div>
+
+                  {/* Show existing enrollment info if available */}
+                  {typeof window !== 'undefined' && localStorage.getItem('mentiby_existing_enrollment_id') && (
+                    <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 backdrop-blur-sm">
+                      <p className="text-orange-200 font-semibold mb-2">
+                        Your Existing Enrollment ID:
+                      </p>
+                      <p className="text-2xl font-bold text-yellow-300">
+                        {localStorage.getItem('mentiby_existing_enrollment_id')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Warning elements */}
+                  <div className="mt-16 space-y-6">
+                    <div className="flex justify-center space-x-8 text-5xl">
+                      <span className="animate-bounce" style={{ animationDelay: '0s' }}>🔒</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>⚠️</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.4s' }}>🚫</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.6s' }}>⚠️</span>
+                    </div>
+
+                    <p className="text-lg text-orange-200">
+                      If you believe this is an error, please contact our support team.
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Normal Success Message
+              <>
+                {/* Success Animation */}
+                <div className="mb-12 animate-fadeIn">
+                  <div className="relative inline-block">
+                    <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full flex items-center justify-center animate-bounce">
+                      <span className="text-6xl">🎉</span>
+                    </div>
+                    {/* Sparkle effects around checkmark */}
+                    <div className="absolute inset-0">
+                      {[...Array(8)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="absolute w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full animate-ping"
+                          style={{
+                            left: `${20 + (i * 15)}%`,
+                            top: `${20 + ((i % 2) * 60)}%`,
+                            animationDelay: `${i * 0.3}s`,
+                          }}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Welcome Message */}
+                <div className="space-y-8 animate-fadeIn">
+                  <h1 className="text-6xl md:text-8xl font-black bg-gradient-to-r from-cyan-300 via-purple-300 to-pink-300 bg-clip-text text-transparent animate-gradient drop-shadow-2xl">
+                    Welcome to MentiBY!
+                  </h1>
+
+                  <div className="h-4 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 rounded-full animate-pulse shadow-lg max-w-2xl mx-auto"></div>
+
+                  <p className="text-3xl md:text-4xl text-gray-100 font-light tracking-wide leading-relaxed">
+                    🚀 Your journey begins now!
+                  </p>
+
+                  <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+                    Get ready for an amazing adventure in learning and growth. We're excited to have you on board!
+                  </p>
+
+                  {/* Additional celebration elements */}
+                  <div className="mt-16 space-y-6">
+                    <div className="flex justify-center space-x-8 text-6xl">
+                      <span className="animate-bounce" style={{ animationDelay: '0s' }}>🎯</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>✨</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.4s' }}>🚀</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.6s' }}>💫</span>
+                    </div>
+
+                    <p className="text-lg text-purple-200">
+                      Check your email for next steps and welcome information!
+                    </p>
+
+                    {/* Show enrollment info if available */}
+                    {typeof window !== 'undefined' && localStorage.getItem('mentiby_enrollment_id') && (
+                      <div className="mt-8 p-6 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 backdrop-blur-sm">
+                        <p className="text-purple-200 font-semibold">
+                          Your Enrollment ID: <span className="text-cyan-300">{localStorage.getItem('mentiby_enrollment_id')}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -525,7 +652,7 @@ export default function OnboardingForm() {
                           value={form.email}
                           onChange={handleChange}
                           className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-white/90 to-gray-50/90 border-2 border-transparent text-black placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:shadow-lg focus:shadow-purple-400/25 transition-all duration-300 hover:shadow-md backdrop-blur-sm"
-                          placeholder="Enter your email"
+                          placeholder="Enter your email address used for registration"
                         />
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/0 via-purple-400/20 to-pink-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                       </div>
