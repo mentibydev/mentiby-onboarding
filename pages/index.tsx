@@ -123,31 +123,36 @@ export default function OnboardingForm() {
       // Generate unique EnrollmentID by checking the last entry in database
       const year = new Date().getFullYear().toString().slice(-2);
 
-      // Fetch the last enrollment ID from the database
-      // Try different approaches to get the last enrollment ID
+      // Fetch the last enrollment ID from the database for this specific cohort
+      // Try different approaches to get the last enrollment ID for the specific COHORT_TYPE + COHORT_NUMBER
       let lastEntry = null;
       let fetchError = null;
 
-      // First try: Order by EnrollmentID itself (lexicographically)
+      // First try: Order by EnrollmentID for specific cohort combination
       try {
         const result = await supabase
           .from('onboarding')
           .select('"EnrollmentID"')
+          .eq('"Cohort Type"', COHORT_TYPE)        // Filter by cohort type
+          .eq('"Cohort Number"', COHORT_NUMBER)    // Filter by cohort number
           .order('"EnrollmentID"', { ascending: false })
           .limit(1);
         lastEntry = result.data;
         fetchError = result.error;
+        console.log(`Querying for cohort: ${COHORT_TYPE} - ${COHORT_NUMBER}`);
       } catch (err) {
         console.log('First approach failed, trying alternative...');
 
-        // Second try: Get all records and find the latest one manually
+        // Second try: Get all records for this cohort and find the latest one manually
         try {
           const result = await supabase
             .from('onboarding')
-            .select('"EnrollmentID"');
+            .select('"EnrollmentID"')
+            .eq('"Cohort Type"', COHORT_TYPE)
+            .eq('"Cohort Number"', COHORT_NUMBER);
 
           if (result.data && result.data.length > 0) {
-            // Sort enrollment IDs manually to find the highest number
+            // Sort enrollment IDs manually to find the highest number for this cohort
             const sortedEntries = result.data.sort((a, b) => {
               const aNum = parseInt(a.EnrollmentID.match(/(\d+)$/)?.[1] || '0');
               const bNum = parseInt(b.EnrollmentID.match(/(\d+)$/)?.[1] || '0');
@@ -163,7 +168,7 @@ export default function OnboardingForm() {
       }
 
       if (fetchError) {
-        console.error('Error fetching last enrollment ID:', fetchError);
+        console.error(`Error fetching last enrollment ID for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, fetchError);
         // Continue with default starting number if query fails
       }
 
@@ -171,22 +176,22 @@ export default function OnboardingForm() {
 
       if (lastEntry && lastEntry.length > 0) {
         const lastEnrollmentID = lastEntry[0]['EnrollmentID'];
-        console.log('Last enrollment ID found:', lastEnrollmentID);
+        console.log(`Last enrollment ID found for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, lastEnrollmentID);
 
         // Extract the roll number from the last enrollment ID (format: 25MBY2001)
         const rollNumberMatch = lastEnrollmentID.match(/(\d+)$/);
         if (rollNumberMatch) {
           const lastRollNumber = parseInt(rollNumberMatch[1]);
           nextRollNumber = (lastRollNumber + 1).toString().padStart(4, '0');
-          console.log('Incremented from', lastRollNumber, 'to', nextRollNumber);
+          console.log(`Incremented from ${lastRollNumber} to ${nextRollNumber} for cohort ${COHORT_TYPE}-${COHORT_NUMBER}`);
         }
       } else {
-        console.log('No existing entries found, using starting number:', nextRollNumber);
+        console.log(`No existing entries found for cohort ${COHORT_TYPE}-${COHORT_NUMBER}, using starting number:`, nextRollNumber);
       }
 
       // Generate enrollment ID with additional uniqueness check
       let enrollmentID = `${year}MBY${nextRollNumber}`;
-      console.log('Generated enrollment ID:', enrollmentID);
+      console.log(`Generated enrollment ID for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, enrollmentID);
 
       // Double-check if this ID already exists to avoid duplicates
       const { data: existingEntry } = await supabase
@@ -196,12 +201,12 @@ export default function OnboardingForm() {
         .limit(1);
 
       if (existingEntry && existingEntry.length > 0) {
-        console.log('Enrollment ID already exists, generating new one...');
+        console.log(`Enrollment ID ${enrollmentID} already exists, generating new one...`);
         // If it exists, increment and try again
         const currentNumber = parseInt(nextRollNumber);
         nextRollNumber = (currentNumber + 1).toString().padStart(4, '0');
         enrollmentID = `${year}MBY${nextRollNumber}`;
-        console.log('New enrollment ID:', enrollmentID);
+        console.log(`New enrollment ID for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, enrollmentID);
       }
 
       // Prepare data for Supabase (try with original column names first)
