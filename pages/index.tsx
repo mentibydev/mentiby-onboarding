@@ -202,13 +202,24 @@ export default function OnboardingForm() {
       // Double-check if this ID already exists to avoid duplicates
       const { data: existingEntry } = await supabase
         .from('onboarding')
-        .select('"EnrollmentID"')
+        .select('"EnrollmentID", "Cohort Type", "Cohort Number"')
         .eq('"EnrollmentID"', enrollmentID)
         .limit(1);
 
       if (existingEntry && existingEntry.length > 0) {
-        console.log(`Enrollment ID ${enrollmentID} already exists, generating new one...`);
-        // If it exists, increment and try again
+        console.log(`Enrollment ID ${enrollmentID} already exists...`);
+        
+        // Check if the existing entry is from a different cohort
+        const existingCohortType = existingEntry[0]['Cohort Type'];
+        const existingCohortNumber = existingEntry[0]['Cohort Number'];
+        
+        if (existingCohortType !== COHORT_TYPE || existingCohortNumber !== COHORT_NUMBER) {
+          // The ID exists in a different cohort, which means this cohort has ended
+          console.log(`ID ${enrollmentID} belongs to ${existingCohortType}-${existingCohortNumber}, not ${COHORT_TYPE}-${COHORT_NUMBER}`);
+          throw new Error('COHORT_CLOSED');
+        }
+        
+        // If it's the same cohort, increment and try again (shouldn't happen with our logic, but safety check)
         const currentNumber = parseInt(nextRollNumber);
         nextRollNumber = (currentNumber + 1).toString().padStart(4, '0');
         enrollmentID = `${year}MBY${nextRollNumber}`;
@@ -284,7 +295,13 @@ export default function OnboardingForm() {
       });
     } catch (err: any) {
       console.error('Submission error:', err);
-      setError(err.message || 'Something went wrong. Please try again.');
+      
+      // Handle specific error cases
+      if (err.message === 'COHORT_CLOSED') {
+        setError('cohort_closed');
+      } else {
+        setError(err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -328,7 +345,70 @@ export default function OnboardingForm() {
         {/* Success Page - Full Screen */}
         <div className="relative z-10 min-h-screen flex items-center justify-center">
           <div className="text-center max-w-4xl mx-auto px-8">
-            {error === 'duplicate' ? (
+            {error === 'cohort_closed' ? (
+              // Cohort Closed Message
+              <>
+                {/* Closed Animation */}
+                <div className="mb-12 animate-fadeIn">
+                  <div className="relative inline-block">
+                    <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center animate-pulse">
+                      <span className="text-6xl">🚫</span>
+                    </div>
+                    {/* Warning effects around closed symbol */}
+                    <div className="absolute inset-0">
+                      {[...Array(6)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="absolute w-3 h-3 bg-gradient-to-r from-red-400 to-red-500 rounded-full animate-ping"
+                          style={{
+                            left: `${25 + (i * 12)}%`,
+                            top: `${25 + ((i % 2) * 50)}%`,
+                            animationDelay: `${i * 0.4}s`,
+                          }}
+                        ></div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cohort Closed Message */}
+                <div className="space-y-8 animate-fadeIn">
+                  <h1 className="text-4xl md:text-6xl font-black bg-gradient-to-r from-red-300 via-red-400 to-red-500 bg-clip-text text-transparent animate-gradient drop-shadow-2xl">
+                    Cohort Onboarding Closed
+                  </h1>
+
+                  <div className="h-4 bg-gradient-to-r from-red-400 via-red-500 to-red-600 rounded-full animate-pulse shadow-lg max-w-2xl mx-auto"></div>
+
+                  <p className="text-2xl md:text-3xl text-red-100 font-light tracking-wide leading-relaxed">
+                    🚫 Your cohort's Onboarding Closed. Please Contact MentiBY
+                  </p>
+
+                  <div className="mt-12 p-8 rounded-3xl bg-gradient-to-r from-red-600/20 to-red-700/20 border-2 border-red-500/30 backdrop-blur-sm">
+                    <p className="text-xl text-red-200 font-semibold mb-4">
+                      🔒 Enrollment Period Ended
+                    </p>
+                    <p className="text-lg text-gray-300 leading-relaxed">
+                      The enrollment period for your cohort has ended and new registrations are no longer accepted. 
+                      Please contact MentiBY support for assistance.
+                    </p>
+                  </div>
+
+                  {/* Contact information */}
+                  <div className="mt-16 space-y-6">
+                    <div className="flex justify-center space-x-8 text-5xl">
+                      <span className="animate-bounce" style={{ animationDelay: '0s' }}>📞</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>📧</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.4s' }}>💬</span>
+                      <span className="animate-bounce" style={{ animationDelay: '0.6s' }}>🚫</span>
+                    </div>
+
+                    <p className="text-lg text-red-200">
+                      Contact MentiBY support team for more information about upcoming cohorts.
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : error === 'duplicate' ? (
               // Already Registered Message
               <>
                 {/* Warning Animation */}
@@ -1062,7 +1142,7 @@ export default function OnboardingForm() {
                 </div>
 
                 {/* Enhanced Status Messages */}
-                {error && (
+                {error && error !== 'duplicate' && error !== 'cohort_closed' && (
                   <div className="mt-10 p-6 rounded-3xl bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-400/30 backdrop-blur-sm animate-fadeIn">
                     <div className="flex items-center justify-center space-x-3">
                       <div className="w-8 h-8 bg-gradient-to-r from-red-400 to-pink-400 rounded-full flex items-center justify-center">
@@ -1070,6 +1150,19 @@ export default function OnboardingForm() {
                       </div>
                       <p className="text-red-300 font-semibold text-lg text-center">
                         {error}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {error === 'cohort_closed' && (
+                  <div className="mt-10 p-6 rounded-3xl bg-gradient-to-r from-red-600/20 to-red-700/20 border border-red-500/30 backdrop-blur-sm animate-fadeIn">
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center">
+                        <span className="text-white text-lg">🚫</span>
+                      </div>
+                      <p className="text-red-300 font-semibold text-lg text-center">
+                        Your cohort's Onboarding Closed. Please Contact MentiBY
                       </p>
                     </div>
                   </div>
