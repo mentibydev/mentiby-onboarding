@@ -26,6 +26,7 @@ export default function OnboardingForm() {
     familiarSkills: [] as string[],
     builtProjects: '',
     goal: '',
+    cohortNumber: '',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -78,6 +79,11 @@ export default function OnboardingForm() {
     setSuccess(false);
 
     try {
+      // First, validate cohort number against config
+      if (form.cohortNumber !== COHORT_NUMBER) {
+        throw new Error(`Variable mismatch detected. Something went wrong from MentiBY's side. Please contact MentiBY with a screenshot and your cohort type and cohort number.`);
+      }
+
       // Check if email already exists in the database
       const { data: existingUser, error: emailCheckError } = await supabase
         .from('onboarding')
@@ -274,6 +280,7 @@ export default function OnboardingForm() {
         familiarSkills: [],
         builtProjects: '',
         goal: '',
+        cohortNumber: '',
       });
     } catch (err: any) {
       console.error('Submission error:', err);
@@ -813,7 +820,7 @@ export default function OnboardingForm() {
                     </div>
 
                     {/* Graduation Year */}
-                    <div className="form-group group md:col-span-2">
+                    <div className="form-group group">
                       <label className="form-label font-black text-xl md:text-2xl mb-4 block drop-shadow-lg"><span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-purple-200 font-black">Graduation Year</span> <span className="text-pink-400 font-black">*</span></label>
                       <div className="relative">
                         <input
@@ -834,6 +841,25 @@ export default function OnboardingForm() {
                           ⚠️ Graduation year must be 2025 or later
                         </p>
                       )}
+                    </div>
+
+                    {/* Cohort Number */}
+                    <div className="form-group group">
+                      <label className="form-label font-black text-xl md:text-2xl mb-4 block drop-shadow-lg"><span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-purple-200 font-black">MentiBY Cohort Number</span> <span className="text-pink-400 font-black">*</span></label>
+                      <div className="relative">
+                        <input
+                          required
+                          name="cohortNumber"
+                          value={form.cohortNumber}
+                          onChange={handleChange}
+                          className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-white/90 to-gray-50/90 border-2 border-transparent text-black placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:shadow-lg focus:shadow-purple-400/25 transition-all duration-300 hover:shadow-md backdrop-blur-sm"
+                          placeholder={`Enter cohort number (e.g. ${COHORT_NUMBER})`}
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/0 via-purple-400/20 to-pink-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                      </div>
+                      <p className="mt-2 text-gray-300 text-sm">
+                        ℹ️ Please enter your cohort number for verification
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1042,8 +1068,8 @@ export default function OnboardingForm() {
                       <div className="w-8 h-8 bg-gradient-to-r from-red-400 to-pink-400 rounded-full flex items-center justify-center">
                         <span className="text-white text-lg">⚠</span>
                       </div>
-                      <p className="text-red-300 font-semibold text-lg">
-                        Oops! Something went wrong. Please try again.
+                      <p className="text-red-300 font-semibold text-lg text-center">
+                        {error}
                       </p>
                     </div>
                   </div>
