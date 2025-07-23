@@ -4,7 +4,7 @@
 
 export const STARTING_ENROLLMENT_NUMBER = 1001;
 export const COHORT_TYPE = "Basic";
-export const COHORT_NUMBER = "1.0";
+export const COHORT_NUMBER = "3.0";
 
 // You can change the above values as needed:
 // COHORT_TYPE examples: "Full Stack Development", "Basic", "Placement", "Mern"
