@@ -2,7 +2,7 @@
 // Change this number to set the starting enrollment number after "MBY"
 // Example: If STARTING_ENROLLMENT_NUMBER = 2001, first ID will be 25MBY2001
 
-export const STARTING_ENROLLMENT_NUMBER = 2001;
+export const STARTING_ENROLLMENT_NUMBER = 2501;
 export const COHORT_TYPE = "Placement";
 export const COHORT_NUMBER = "2.0";
 
