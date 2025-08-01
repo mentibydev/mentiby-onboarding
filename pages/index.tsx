@@ -84,11 +84,13 @@ export default function OnboardingForm() {
         throw new Error(`Variable mismatch detected. Something went wrong from MentiBY's side. Please contact MentiBY with a screenshot and your cohort type and cohort number.`);
       }
 
-      // Check if email already exists in the database
+      // Check if email already exists with same cohort type and cohort number
       const { data: existingUser, error: emailCheckError } = await supabase
         .from('onboarding')
         .select('Email')
         .eq('Email', form.email)
+        .eq('"Cohort Type"', COHORT_TYPE)
+        .eq('"Cohort Number"', COHORT_NUMBER)
         .limit(1);
 
       if (emailCheckError) {
@@ -97,11 +99,13 @@ export default function OnboardingForm() {
       }
 
       if (existingUser && existingUser.length > 0) {
-        // Email already exists - fetch enrollment ID and show already registered message
+        // Email already exists with same cohort type and number - fetch enrollment ID and show already registered message
         const { data: userDetails, error: detailsError } = await supabase
           .from('onboarding')
           .select('EnrollmentID')
           .eq('Email', form.email)
+          .eq('"Cohort Type"', COHORT_TYPE)
+          .eq('"Cohort Number"', COHORT_NUMBER)
           .limit(1);
 
         let enrollmentId = null;
