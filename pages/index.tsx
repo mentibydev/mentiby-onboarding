@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { STARTING_ENROLLMENT_NUMBER, COHORT_TYPE, COHORT_NUMBER } from '../config/enrollmentConfig';
+import { getEnrollmentConfig } from '../config/enrollmentConfig';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -32,6 +32,24 @@ export default function OnboardingForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  
+  // Enrollment config fetched from Supabase
+  const [enrollmentConfig, setEnrollmentConfig] = useState({
+    STARTING_ENROLLMENT_NUMBER: 2501,
+    COHORT_TYPE: 'Placement',
+    COHORT_NUMBER: '2.0',
+  });
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  // Fetch enrollment config from Supabase on mount
+  useEffect(() => {
+    const loadConfig = async () => {
+      const config = await getEnrollmentConfig();
+      setEnrollmentConfig(config);
+      setConfigLoaded(true);
+    };
+    loadConfig();
+  }, []);
 
   // Check for existing submission token on component mount
   useEffect(() => {
@@ -80,7 +98,7 @@ export default function OnboardingForm() {
 
     try {
       // First, validate cohort number against config
-      if (form.cohortNumber !== COHORT_NUMBER) {
+      if (form.cohortNumber !== enrollmentConfig.COHORT_NUMBER) {
         throw new Error(`Variable mismatch detected. Something went wrong from MentiBY's side. Please contact MentiBY with a screenshot and your cohort type and cohort number.`);
       }
 
@@ -89,8 +107,8 @@ export default function OnboardingForm() {
         .from('onboarding')
         .select('Email')
         .eq('Email', form.email)
-        .eq('"Cohort Type"', COHORT_TYPE)
-        .eq('"Cohort Number"', COHORT_NUMBER)
+        .eq('"Cohort Type"', enrollmentConfig.COHORT_TYPE)
+        .eq('"Cohort Number"', enrollmentConfig.COHORT_NUMBER)
         .limit(1);
 
       if (emailCheckError) {
@@ -104,8 +122,8 @@ export default function OnboardingForm() {
           .from('onboarding')
           .select('EnrollmentID')
           .eq('Email', form.email)
-          .eq('"Cohort Type"', COHORT_TYPE)
-          .eq('"Cohort Number"', COHORT_NUMBER)
+          .eq('"Cohort Type"', enrollmentConfig.COHORT_TYPE)
+          .eq('"Cohort Number"', enrollmentConfig.COHORT_NUMBER)
           .limit(1);
 
         let enrollmentId = null;
@@ -143,13 +161,13 @@ export default function OnboardingForm() {
         const result = await supabase
           .from('onboarding')
           .select('"EnrollmentID"')
-          .eq('"Cohort Type"', COHORT_TYPE)        // Filter by cohort type
-          .eq('"Cohort Number"', COHORT_NUMBER)    // Filter by cohort number
+          .eq('"Cohort Type"', enrollmentConfig.COHORT_TYPE)        // Filter by cohort type
+          .eq('"Cohort Number"', enrollmentConfig.COHORT_NUMBER)    // Filter by cohort number
           .order('"EnrollmentID"', { ascending: false })
           .limit(1);
         lastEntry = result.data;
         fetchError = result.error;
-        console.log(`Querying for cohort: ${COHORT_TYPE} - ${COHORT_NUMBER}`);
+        console.log(`Querying for cohort: ${enrollmentConfig.COHORT_TYPE} - ${enrollmentConfig.COHORT_NUMBER}`);
       } catch (err) {
         console.log('First approach failed, trying alternative...');
 
@@ -158,8 +176,8 @@ export default function OnboardingForm() {
           const result = await supabase
             .from('onboarding')
             .select('"EnrollmentID"')
-            .eq('"Cohort Type"', COHORT_TYPE)
-            .eq('"Cohort Number"', COHORT_NUMBER);
+            .eq('"Cohort Type"', enrollmentConfig.COHORT_TYPE)
+            .eq('"Cohort Number"', enrollmentConfig.COHORT_NUMBER);
 
           if (result.data && result.data.length > 0) {
             // Sort enrollment IDs manually to find the highest number for this cohort
@@ -178,30 +196,30 @@ export default function OnboardingForm() {
       }
 
       if (fetchError) {
-        console.error(`Error fetching last enrollment ID for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, fetchError);
+        console.error(`Error fetching last enrollment ID for cohort ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}:`, fetchError);
         // Continue with default starting number if query fails
       }
 
-      let nextRollNumber = STARTING_ENROLLMENT_NUMBER.toString().padStart(4, '0'); // Use the starting enrollment number
+      let nextRollNumber = enrollmentConfig.STARTING_ENROLLMENT_NUMBER.toString().padStart(4, '0'); // Use the starting enrollment number
 
       if (lastEntry && lastEntry.length > 0) {
         const lastEnrollmentID = lastEntry[0]['EnrollmentID'];
-        console.log(`Last enrollment ID found for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, lastEnrollmentID);
+        console.log(`Last enrollment ID found for cohort ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}:`, lastEnrollmentID);
 
         // Extract the roll number from the last enrollment ID (format: 25MBY2001)
         const rollNumberMatch = lastEnrollmentID.match(/(\d+)$/);
         if (rollNumberMatch) {
           const lastRollNumber = parseInt(rollNumberMatch[1]);
           nextRollNumber = (lastRollNumber + 1).toString().padStart(4, '0');
-          console.log(`Incremented from ${lastRollNumber} to ${nextRollNumber} for cohort ${COHORT_TYPE}-${COHORT_NUMBER}`);
+          console.log(`Incremented from ${lastRollNumber} to ${nextRollNumber} for cohort ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}`);
         }
       } else {
-        console.log(`No existing entries found for cohort ${COHORT_TYPE}-${COHORT_NUMBER}, using starting number:`, nextRollNumber);
+        console.log(`No existing entries found for cohort ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}, using starting number:`, nextRollNumber);
       }
 
       // Generate enrollment ID with additional uniqueness check
       let enrollmentID = `${year}MBY${nextRollNumber}`;
-      console.log(`Generated enrollment ID for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, enrollmentID);
+      console.log(`Generated enrollment ID for cohort ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}:`, enrollmentID);
 
       // Double-check if this ID already exists to avoid duplicates
       const { data: existingEntry } = await supabase
@@ -217,9 +235,9 @@ export default function OnboardingForm() {
         const existingCohortType = existingEntry[0]['Cohort Type'];
         const existingCohortNumber = existingEntry[0]['Cohort Number'];
         
-        if (existingCohortType !== COHORT_TYPE || existingCohortNumber !== COHORT_NUMBER) {
+        if (existingCohortType !== enrollmentConfig.COHORT_TYPE || existingCohortNumber !== enrollmentConfig.COHORT_NUMBER) {
           // The ID exists in a different cohort, which means this cohort has ended
-          console.log(`ID ${enrollmentID} belongs to ${existingCohortType}-${existingCohortNumber}, not ${COHORT_TYPE}-${COHORT_NUMBER}`);
+          console.log(`ID ${enrollmentID} belongs to ${existingCohortType}-${existingCohortNumber}, not ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}`);
           throw new Error('COHORT_CLOSED');
         }
         
@@ -227,7 +245,7 @@ export default function OnboardingForm() {
         const currentNumber = parseInt(nextRollNumber);
         nextRollNumber = (currentNumber + 1).toString().padStart(4, '0');
         enrollmentID = `${year}MBY${nextRollNumber}`;
-        console.log(`New enrollment ID for cohort ${COHORT_TYPE}-${COHORT_NUMBER}:`, enrollmentID);
+        console.log(`New enrollment ID for cohort ${enrollmentConfig.COHORT_TYPE}-${enrollmentConfig.COHORT_NUMBER}:`, enrollmentID);
       }
 
       // Prepare data for Supabase (try with original column names first)
@@ -248,8 +266,8 @@ export default function OnboardingForm() {
         'Familiar Skills': form.familiarSkills.join(', '),
         'Built Projects': form.builtProjects,
         'Goal': form.goal,
-        'Cohort Type': COHORT_TYPE,
-        'Cohort Number': COHORT_NUMBER,
+        'Cohort Type': enrollmentConfig.COHORT_TYPE,
+        'Cohort Number': enrollmentConfig.COHORT_NUMBER,
       };
 
       console.log('Submitting data:', submissionData); // Debug log
@@ -937,7 +955,7 @@ export default function OnboardingForm() {
                           value={form.cohortNumber}
                           onChange={handleChange}
                           className="w-full px-6 py-4 rounded-2xl bg-gradient-to-r from-white/90 to-gray-50/90 border-2 border-transparent text-black placeholder-gray-500 focus:outline-none focus:border-purple-400 focus:shadow-lg focus:shadow-purple-400/25 transition-all duration-300 hover:shadow-md backdrop-blur-sm"
-                          placeholder={`Enter cohort number (e.g. ${COHORT_NUMBER})`}
+                          placeholder={`Enter cohort number (e.g. ${enrollmentConfig.COHORT_NUMBER})`}
                         />
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/0 via-purple-400/20 to-pink-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                       </div>
